@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+
+SERVICE_NAME="backend"
+TTY=""
+DC="exec"
+
+# If output isn't a terminal, don't allocate a TTY (for CI support)
+if [[ ! -t 1 ]]; then
+  TTY="-T"
+fi
+
+# Internal wrapper for docker compose
+_dc() {
+  docker compose ${DC} ${TTY} "${SERVICE_NAME}" "$@"
+}
+
+# Run a command using a short-lived container
+_run() {
+  DC="run" _dc --rm --no-deps "$@"
+}
+
+# --- Commands you'll use ---
+
+bundle() {
+  _dc bundle "$@"
+}
+
+rails() {
+  _dc rails "$@"
+}
+
+shell() {
+  _dc bash
+}
+
+psql() {
+  docker compose exec postgres psql -U postgres "$@"
+}
+
+redis-cli() {
+  docker compose exec redis redis-cli "$@"
+}
+
+setup() {
+  echo "Installing backend dependencies..."
+  _run bundle install
+}
+
+help() {
+  echo "Usage: ./run <command>"
+  echo ""
+  echo "Commands:"
+  echo "  rails             Run Rails commands inside the backend container"
+  echo "  bundle            Run Bundler inside the backend container"
+  echo "  shell             Drop into an interactive Bash shell in backend"
+  echo "  psql              Connect to the Postgres database"
+  echo "  redis-cli         Connect to Redis CLI"
+  echo "  setup             Run initial setup (bundle install, etc.)"
+}
+
+# Run the command
+"${@:-help}"
